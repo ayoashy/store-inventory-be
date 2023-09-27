@@ -31,10 +31,12 @@ const registerUser = asyncHandler(async (req, res) => {
   const user = await User.create({
     name,
     email,
-    password: hashedPassword,
+    password,
   });
 
   if (user) {
+    const token = generateToken(user._id);
+
     const { name, email, _id, photo, bio, phone, password } = user;
     res.status(201).json({
       name,
@@ -44,6 +46,7 @@ const registerUser = asyncHandler(async (req, res) => {
       bio,
       phone,
       password,
+      token,
     });
   } else {
     throw new Error('no user found!');
