@@ -1,11 +1,13 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1d' });
 };
 
+// register user controller
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -63,6 +65,60 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 });
 
+// login user controller
+const loginUser = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  // validate expected inputs
+  if (!email || !password) {
+    res.status(400);
+    throw new Error('please provide all credentials');
+  }
+  // check if user exist
+  const user = await User.findOne({ email });
+  if (!user) {
+    res.status(400);
+    throw new Error('user do not exist');
+  }
+
+  // user exist  but password do not match
+  const isPasswordMatch = await bcrypt.compare(password, user.password);
+
+  if (!isPasswordMatch) {
+    res.status(400);
+    throw new Error('Invalid credentials');
+  }
+
+  if (user && isPasswordMatch) {
+    // generate token
+    const token = generateToken(user._id);
+
+    // send HTTP-only cookie
+    res.cookie('token', token, {
+      path: '/',
+      httpOnly: true,
+      expires: new Date(Date.now() + 1000 * 86400), // a day
+      sameSite: 'none',
+      secure: true,
+    });
+    const { password, email, name, _id, photo, bio } = user;
+    res.status(200).json({
+      password,
+      email,
+      name,
+      _id,
+      token,
+      photo,
+      bio,
+      token,
+    });
+  } else {
+    res.status(400);
+    throw new Error('user not known');
+  }
+});
+
 module.exports = {
   registerUser,
+  loginUser,
 };
