@@ -143,9 +143,32 @@ const getUser = asyncHandler(async (req, res) => {
   }
 });
 
+// get user login status
+const loginStatus = asyncHandler(async (req, res) => {
+  const token = req.cookies.token;
+  if (!token) {
+    res.json({ status: false });
+  }
+
+  // verify token
+  const isTokenVerified = jwt.verify(token, process.env.JWT_SECRET);
+  if (!isTokenVerified) {
+    res.status(400);
+    throw new Error('token not valid');
+  }
+  // match token id and req id
+  const tokenId = isTokenVerified.id.toString();
+
+  if (!tokenId) {
+    res.status(400).json({ message: 'no token' });
+  }
+  res.status(200).json({ status: true });
+});
+
 module.exports = {
   registerUser,
   loginUser,
   logout,
   getUser,
+  loginStatus,
 };
