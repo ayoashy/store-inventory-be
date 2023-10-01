@@ -165,10 +165,37 @@ const loginStatus = asyncHandler(async (req, res) => {
   res.status(200).json({ status: true });
 });
 
+const updateUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    res.status(400);
+    throw new Error('User not found!');
+  }
+  const { email, bio, name, photo, phone } = user;
+  user.email = email;
+  user.name = req.body.name || name;
+  user.bio = req.body.bio || bio;
+  user.photo = req.body.photo || photo;
+  user.phone = req.body.phone || phone;
+
+  const updatedUser = await user.save();
+
+  if (!updateUser) {
+    res.status(400);
+    res.send('fail to save changes');
+  }
+
+  res.status(200).json({
+    status: 'done',
+    user,
+  });
+});
+
 module.exports = {
   registerUser,
   loginUser,
   logout,
   getUser,
   loginStatus,
+  updateUser,
 };
