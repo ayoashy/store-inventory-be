@@ -217,6 +217,20 @@ const changePassword = asyncHandler(async (req, res) => {
   }
 });
 
+const forgetPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    res.status(400);
+    throw new Error('Please provide email');
+  }
+  const isEmailValid = await User.findOne({ email });
+  if (!isEmailValid) {
+    res.status(404);
+    throw new Error('Email do not exist!');
+  }
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -225,4 +239,5 @@ module.exports = {
   loginStatus,
   updateUser,
   changePassword,
+  forgetPassword,
 };
