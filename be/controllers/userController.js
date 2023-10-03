@@ -2,6 +2,9 @@ const asyncHandler = require('express-async-handler');
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const Token = require('../models/tokenModel');
+const crypto = require('crypto');
+const sendEmail = require('../utils/sendEmail');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1d' });
@@ -217,6 +220,73 @@ const changePassword = asyncHandler(async (req, res) => {
   }
 });
 
+const forgetPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    res.status(400);
+    throw new Error('Please provide email');
+  }
+  const user = await User.findOne({ email });
+  if (!user) {
+    res.status(404);
+    throw new Error('Email do not exist!');
+  }
+
+  // delete token if it exist
+  const token = await Token.findOne({ userId: user._id });
+
+  if (token) {
+    await token.deleteOne();
+  }
+
+  // create reset token
+  let resetToken = crypto.randomBytes(32).toString('hex') + user._id;
+
+  // hash token
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // save token to DB
+
+  await new Token({
+    userId: user._id,
+    token: hashedToken,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 30 * (60 * 1000),
+  }).save();
+
+  // construct frontend url
+  const url = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+  // construct email
+  const message = `
+<h2>Hello ${user.name}</h2>    
+<p>Please use this link to reset your password</p>
+<p>The reset link is valid for o nly 30 minutes</p>
+<a href=${url}>${url}</a>
+<p style="color: red ; font-size: 16px; font-weight: bold;">Love</p>
+  `;
+
+  const subject = 'password reset request';
+
+  const send_to = user.email;
+  const sent_from = process.env.EMAIL_USER;
+
+  // send email
+
+  try {
+    await sendEmail(subject, message, send_to, sent_from);
+    res.status(200).json({ success: true, message: 'done' });
+  } catch (error) {
+    res.status(500);
+    console.log(error);
+    throw new Error("didn't done");
+  }
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -225,4 +295,5 @@ module.exports = {
   loginStatus,
   updateUser,
   changePassword,
+  forgetPassword,
 };
