@@ -14,6 +14,12 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+app.use(
+  cors({
+    origin: ['http://localhost:3000', 'https://pinvent-app.vercel.app'],
+    credentials: true,
+  })
+);
 
 // Routes middleware
 app.use('/api/users', userRoute);
