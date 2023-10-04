@@ -40,6 +40,13 @@ const registerUser = asyncHandler(async (req, res) => {
   });
 
   if (user) {
+    sendEmail(
+      'Register',
+      `<p>Hi ${user.name},Welcome to the thing we are cooking!</p>
+<p>Hope you have a nice meal</p>`,
+      user.email,
+      process.env.EMAIL_USER
+    );
     // generate token
     const token = generateToken(user._id);
 
@@ -84,7 +91,7 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new Error('user do not exist');
   }
 
-  // user exist  but password do not match
+  // check if password match
   const isPasswordMatch = await bcrypt.compare(password, user.password);
 
   if (!isPasswordMatch) {
@@ -138,7 +145,7 @@ const logout = asyncHandler(async (req, res) => {
 
 // get user controller
 const getUser = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
+  const user = await User.findById(req.user._id).select('-password');
   if (user) {
     res.status(200).json({ user });
   } else {
@@ -259,7 +266,7 @@ const forgetPassword = asyncHandler(async (req, res) => {
   }).save();
 
   // construct frontend url
-  const url = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+  const url = `${process.env.FRONTEND_URL}/reset-password/?token=${resetToken}`;
 
   // construct email
   const message = `
@@ -279,12 +286,51 @@ const forgetPassword = asyncHandler(async (req, res) => {
 
   try {
     await sendEmail(subject, message, send_to, sent_from);
-    res.status(200).json({ success: true, message: 'done' });
+    res.status(200).json({ success: true, message: 'done', resetToken });
   } catch (error) {
     res.status(500);
     console.log(error);
     throw new Error("didn't done");
   }
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+  const { resetToken } = req.params;
+
+  if (!password) {
+    res.status(404);
+    throw new Error('please provide email');
+  }
+
+  // hash token then compare to what is in the DB
+  const hashToken = crypto
+    .createHash('SHA256')
+    .update(resetToken)
+    .digest('hex');
+
+  // find token in DB
+  const token = await Token.findOne({
+    token: hashToken,
+    expiresAt: { $gt: Date.now() },
+  });
+
+  if (!token) {
+    res.status(404);
+    throw new Error('token might be expired');
+  }
+
+  // find user
+  const user = await User.findById(token.userId);
+  user.password = password;
+  await user.save();
+
+  // delete token so it can only be used once
+  await token.deleteOne();
+
+  res.status(200).json({
+    message: 'password reset successful',
+  });
 });
 
 module.exports = {
@@ -296,4 +342,5 @@ module.exports = {
   updateUser,
   changePassword,
   forgetPassword,
+  resetPassword,
 };
