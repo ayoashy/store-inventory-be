@@ -76,13 +76,12 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 // login user controller
-const loginUser = asyncHandler(async (req, res) => {
+const loginUser = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
 
   // validate expected inputs
   if (!email || !password) {
-    res.status(400);
-    throw new Error('please provide all credentials');
+    throw new Error('Please provide all field');
   }
   // check if user exist
   const user = await User.findOne({ email });

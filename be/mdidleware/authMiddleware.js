@@ -12,6 +12,7 @@ const protectMiddleware = asyncHandler(async (req, res, next) => {
 
   // verify token.
   const isTokenVerified = jwt.verify(token, process.env.JWT_SECRET);
+
   // variable return three props(id,iat,exp)
 
   // get userID from token
